@@ -20,6 +20,12 @@ def ae_loss(model, x):
     return loss, {recon_loss = loss}
     """
 
+    #TODO: where is self.fc layer used then?
+
+    z = model.encoder(x)
+    xr = model.decoder(z)
+    loss = F.mse_loss(x,xr, reduce=False).mean(dim=0)
+
     return loss, OrderedDict(recon_loss=loss)
 
 def vae_loss(model, x, beta = 1):
