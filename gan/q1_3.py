@@ -2,12 +2,14 @@ import argparse
 import os
 from utils import get_args
 
+import torch.nn as nn
 import torch
 
 from networks import Discriminator, Generator
 import torch.nn.functional as F
 from train import train_model
 
+#TODO: why is there no min-max shit happening around here?
 
 def compute_discriminator_loss(
     discrim_real, discrim_fake, discrim_interp, interp, lamb
@@ -16,14 +18,22 @@ def compute_discriminator_loss(
     TODO 1.3.1: Implement GAN loss for discriminator.
     Do not use discrim_interp, interp, lamb. They are placeholders for Q1.5.
     """
-    return loss
+
+    discrim_real = discrim_real.reshape(-1)
+    loss_real = nn.BCEWithLogitsLoss()(discrim_real, torch.ones_like(discrim_real))
+
+    discrim_fake = discrim_fake.reshape(-1)
+    loss_fake = nn.BCEWithLogitsLoss()(discrim_fake, torch.zeros_like(discrim_fake))
+    return (loss_real + loss_fake) #TODO: multiply by weight?
 
 
 def compute_generator_loss(discrim_fake):
     """
     TODO 1.3.1: Implement GAN loss for generator.
     """
-    return loss
+    discrim_fake = discrim_fake.reshape(-1)
+    loss_fake = nn.BCEWithLogitsLoss()(discrim_fake, torch.ones_like(discrim_fake))
+    return loss_fake
 
 
 if __name__ == "__main__":

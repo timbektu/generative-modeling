@@ -11,6 +11,8 @@ from cleanfid import fid as cleanfid
 def get_fid(gen, dataset_name, dataset_resolution, z_dimension, batch_size, num_gen):
     # TODO 3.3: Write a function that samples images from the diffusion model given z
     # NOTE: the output must be [0, 255]
+    #TODO: blahblah
+    gen_fn = gen.sample_given_z(shape=z_dimension)
     score = cleanfid.compute_fid(
         gen=gen_fn,
         dataset_name=dataset_name,
@@ -43,13 +45,13 @@ if __name__ == "__main__":
     model = Unet(
         dim=64,
         dim_mults=(1, 2, 4, 8)
-    ).cuda()
+    ).cuda() #TODO:
     diffusion = DiffusionModel(
         model,
         timesteps=1000,   # number of timesteps
         sampling_timesteps=sampling_timesteps,
         ddim_sampling_eta=args.ddim_eta,
-    ).cuda()
+    ).cuda() #TODO:
 
     img_shape = (args.num_images, diffusion.channels, args.image_size, args.image_size)
 

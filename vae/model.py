@@ -4,6 +4,10 @@ import torch.nn as nn
 import torch.utils.data as data
 import torch.optim as optim
 
+#TODO: reparametrization trick for backpropagating through sampling process. do i understand it? Done
+#TODO: what additional loss term are we adding to AE to make it a VAE?
+#TODO: the dimensions of latent space are all independent. could use a multi-variate gaussian with a covariance matrix to model this.
+
 class Encoder(nn.Module):
     def __init__(self, input_shape, latent_dim):
         super().__init__()
@@ -23,18 +27,52 @@ class Encoder(nn.Module):
         """
 
         #TODO 2.1: fill in self.fc, such that output dimension is self.latent_dim
+        self.encoder_block = nn.Sequential([nn.Conv2d(in_channels=input_shape[0], out_channels=32, kernel_size=3, stride=1, padding=1),
+                                            nn.ReLU(),
+                                            nn.Conv2d(in_channels=32, out_channels=64, kernel_size=3, stride=2, padding=1), 
+                                            nn.ReLU(),
+                                            nn.Conv2d(in_channels=64, out_channels=128, kernel_size=3, stride=2, padding=1),
+                                            nn.ReLU(), 
+                                            nn.Conv2d(in_channels=128, out_channels=256, kernel_size=3, stride=2, padding=1)])
+        self.fc = nn.Linear(256, self.latent_dim, bias=True) #TODO: sum across pixels, or flatten everything. How to decide?
 
     def forward(self, x):
         #TODO 2.1 : forward pass through the network, output should be of dimension : self.latent_dim
+
+        x = self.encoder_block(x).sum(dim=[2,3]) #TODO: sum across pixels, or flatten everything. How to decide?
+        x = self.fc(x)
+        return x
+
+
 
 class VAEEncoder(Encoder):
     def __init__(self, input_shape, latent_dim):
         super().__init__(input_shape, latent_dim)
         #TODO 2.4: fill in self.fc, such that output dimension is 2*self.latent_dim
 
+        self.encoder_block = nn.Sequential([nn.Conv2d(in_channels=input_shape[0], out_channels=32, kernel_size=3, stride=1, padding=1),
+                                            nn.ReLU(),
+                                            nn.Conv2d(in_channels=32, out_channels=64, kernel_size=3, stride=2, padding=1), 
+                                            nn.ReLU(),
+                                            nn.Conv2d(in_channels=64, out_channels=128, kernel_size=3, stride=2, padding=1),
+                                            nn.ReLU(), 
+                                            nn.Conv2d(in_channels=128, out_channels=256, kernel_size=3, stride=2, padding=1)])
+        self.fc = nn.Linear(256, 2*self.latent_dim, bias=True) #TODO: sum across pixels, or flatten everything. How to decide?
+
+
+
+
     def forward(self, x):
         #TODO 2.4: forward pass through the network.
         # should return a tuple of 2 tensors, mu and log_std
+
+        x = self.encoder_block(x)
+        x = x.view(x.size[0], -1)
+        x = self.fc(x)
+
+        mu = x[:,:self.latent_dim]
+        log_std = x[:,self.latent_dim:]
+
         return mu, log_std
 
 
@@ -45,6 +83,7 @@ class Decoder(nn.Module):
         self.output_shape = output_shape
 
         #TODO 2.1: fill in self.base_size
+        self.base_size = 256
 
         """
         TODO 2.1 : Fill in self.deconvs following the given architecture
@@ -59,9 +98,20 @@ class Decoder(nn.Module):
                 (7): Conv2d(32, 3, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
             )
         """
+        self.decoder_block = nn.Sequential([nn.ReLU(),
+                                            nn.ConvTranspose2d(256, 128, kernel_size=(4, 4), stride=(2, 2), padding=(1, 1)),
+                                            nn.ReLU(),
+                                            nn.ConvTranspose2d(128, 64, kernel_size=(4, 4), stride=(2, 2), padding=(1, 1)),
+                                            nn.ReLU(),
+                                            nn.ConvTranspose2d(64, 32, kernel_size=(4, 4), stride=(2, 2), padding=(1, 1)),
+                                            nn.ReLU(),
+                                            nn.Conv2d(32, 3, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))])
 
     def forward(self, z):
         #TODO 2.1: forward pass through the network, first through self.fc, then self.deconvs.
+        #TODO: self.fc what?
+
+        out = self.decoder_block(z)
         return out
 
 class AEModel(nn.Module):
