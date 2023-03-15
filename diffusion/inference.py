@@ -11,8 +11,18 @@ from cleanfid import fid as cleanfid
 def get_fid(gen, dataset_name, dataset_resolution, z_dimension, batch_size, num_gen):
     # TODO 3.3: Write a function that samples images from the diffusion model given z
     # NOTE: the output must be [0, 255]
-    #TODO: blahblah
-    gen_fn = gen.sample_given_z(shape=z_dimension)
+    #TODO: check how batching is done in DDIM?
+    
+    # print("In FID")
+    def gen_fn(z):
+        print("in FID In gen_fn", z.shape)
+        pass
+        shape = [batch_size, 3,32,32]
+        print("In FID:", shape)
+        img = gen.sample_given_z(shape = shape, z=z.reshape(shape))
+        #TODO: clamp in [0,255]?
+        return img
+
     score = cleanfid.compute_fid(
         gen=gen_fn,
         dataset_name=dataset_name,
@@ -48,7 +58,7 @@ if __name__ == "__main__":
     ).cuda() #TODO:
     diffusion = DiffusionModel(
         model,
-        timesteps=1000,   # number of timesteps
+        timesteps=1000,   # number of timesteps #TODO: change
         sampling_timesteps=sampling_timesteps,
         ddim_sampling_eta=args.ddim_eta,
     ).cuda() #TODO:
@@ -65,6 +75,8 @@ if __name__ == "__main__":
         if args.sampling_method == "ddpm":
             generated_samples = diffusion.sample(img_shape)
         elif args.sampling_method == "ddim":
+            print("here 1")
+            print(img_shape)
             generated_samples = diffusion.sample(img_shape)
         save_image(
             generated_samples.data.float(),
@@ -73,5 +85,7 @@ if __name__ == "__main__":
         )
         if args.compute_fid:
             # NOTE: This will take a very long time to run even though we are only doing 10K samples.
+            #TODO: my corrections
             score = get_fid(diffusion, "cifar10", 32, 32*32*3, batch_size=256, num_gen=10_000)
+            # score = get_fid(diffusion, "cifar10", 32, 3,32,32), batch_size=256, num_gen=10_000)
             print("FID: ", score)

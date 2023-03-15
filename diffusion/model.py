@@ -35,7 +35,7 @@ class DiffusionModel(nn.Module):
         # print(alphas.shape, alphas.mean(), alphas.min(), alphas.max())
 
         # TODO 3.1: compute the cumulative products for current and previous timesteps
-        self.alphas_cumprod = torch.cumprod(alphas)
+        self.alphas_cumprod = torch.cumprod(alphas, dim =-1)
         self.alphas_cumprod_prev = torch.cat([torch.tensor([1.], device=self.device),
                                               self.alphas_cumprod[:-1]])
 
@@ -60,7 +60,8 @@ class DiffusionModel(nn.Module):
 
         # sampling related parameters
         self.sampling_timesteps = default(sampling_timesteps, timesteps) # default num sampling timesteps to number of timesteps at training
-
+        print("timesteps")
+        print(self.sampling_timesteps, timesteps)
         assert self.sampling_timesteps <= timesteps
         self.is_ddim_sampling = self.sampling_timesteps < timesteps
         self.ddim_sampling_eta = ddim_sampling_eta
@@ -84,8 +85,17 @@ class DiffusionModel(nn.Module):
         # Hint: You can use extract function from utils.py.
         # clamp x_0 to [-1, 1]
 
+        print("FID debug, here")
+        print(x_t.shape, t.shape)
         pred_noise = self.model(x_t,t)
-        x_0 = self.x_0_pred_coef_1[t] * x_t + self.x_0_pred_coef_2[t] * pred_noise
+        # print("Here")
+        # print(t)
+        # print(self.x_0_pred_coef_1.shape, self.x_0_pred_coef_2.shape)
+        # print(self.x_0_pred_coef_1[t].shape, x_t.shape)
+        # print(self.x_0_pred_coef_2[t].shape, pred_noise.shape)
+
+        num_t = t.shape[0]
+        x_0 = self.x_0_pred_coef_1[t].reshape((num_t,1,1,1)) * x_t + self.x_0_pred_coef_2[t].reshape((num_t,1,1,1)) * pred_noise
         x_0 = x_0.clamp(-1,1)
 
         return (pred_noise, x_0)
@@ -96,13 +106,22 @@ class DiffusionModel(nn.Module):
         # also return the predicted starting image.
         # Hint: To do this, you will need a predicted x_0. Which function can do this for you?
 
-        pred_x_0 = self.model_predictions(x,t)
-        u_t = self.posterior_mean_coef2[t]*x + self.posterior_mean_coef1[t]*pred_x_0
-        sigma_t = self.posterior_variance[t]
+        # print('here 1')
+        num_t = t.shape[0]
+        _, pred_x_0 = self.model_predictions(x,t)
+
+        # print(t.shape)
+        # print(pred_x_0)
+        # print(self.posterior_mean_coef2[t].shape)
+        # print(x.shape)
+
+        u_t = self.posterior_mean_coef2[t].reshape((num_t,1,1,1))*x + self.posterior_mean_coef1[t].reshape((num_t,1,1,1))*pred_x_0
+        sigma_t = torch.sqrt(self.posterior_variance[t])
 
         #TODO: we are getting variance but need Std-dev, so take square-root?
-
-        pred_img = u_t + sigma_t * torch.randn(x.shape)
+        # print("Hereeee")
+        # print(u_t.shape, sigma_t.shape, x.shape)
+        pred_img = u_t + sigma_t.reshape((num_t,1,1,1)) * torch.randn(x.shape).to(self.device)
         x_0 = pred_x_0
 
         return pred_img, x_0
@@ -114,21 +133,31 @@ class DiffusionModel(nn.Module):
             batched_times = torch.full((img.shape[0],), t, device=self.device, dtype=torch.long)
             img, _ = self.predict_denoised_at_prev_timestep(img, batched_times)
         img = unnormalize_to_zero_to_one(img)
+        
+        print("finale 2")
+        print(img.shape, img.min(), img.max(), img.mean())
         return img
 
     def sample_times(self, total_timesteps, sampling_timesteps):
         # TODO 3.2: Generate a list of times to sample from.
-        return torch.range(0, total_timesteps, sampling_timesteps).to(self.device)
+        times = torch.arange(total_timesteps,0, -sampling_timesteps).to(self.device)-1
+        print("In sample times")
+        print(times)
+        return times
 
     def get_time_pairs(self, times):
         # TODO 3.2: Generate a list of adjacent time pairs to sample from.
-        return torch.stack((times[1:], times[:-1]), dim=1)
+        return torch.stack((times[:-1], times[1:]), dim=1)
+        #TODO: Rev it
 
     def ddim_step(self, batch, device, tau_i, tau_isub1, img, model_predictions, alphas_cumprod, eta):
         # TODO 3.2: Compute the output image for a single step of the DDIM sampling process.
+        print("in ddim step")
+        print(tau_i)
+        print(img.shape)
 
         # predict x_0 and the additive noise for tau_i
-        pred_noise, x_0 = model_predictions(img, tau_i)
+        pred_noise, x_0 = model_predictions(img, tau_i.repeat(batch))
 
         # extract \alpha_{\tau_{i - 1}} and \alpha_{\tau_{i}}
         alpha_tau_i = self.alphas_cumprod[tau_i]
@@ -139,31 +168,55 @@ class DiffusionModel(nn.Module):
         sigma_tau_i = torch.sqrt(var_tau_i)
 
         # compute the coefficient of \epsilon_{\tau_{i}}
+        
+        print("ddim step 2", alpha_tau_isub1.shape)
         u_tau_i = torch.sqrt(alpha_tau_isub1)*x_0 + torch.sqrt(1-alpha_tau_isub1-var_tau_i)*pred_noise
+
+        print(var_tau_i.shape, sigma_tau_i.shape, u_tau_i.shape)
+        print(alpha_tau_i.shape, alpha_tau_isub1.shape)
 
         # sample from q(x_{\tau_{i - 1}} | x_{\tau_t}, x_0)
         # HINT: use the reparameterization trick
         #TODO: deterministic or stochastic here sampling?
-        img = u_tau_i + sigma_tau_i*torch.random(img.shape)
+        img = u_tau_i + sigma_tau_i*torch.randn(img.shape).to(self.device)
+
+        print(img.shape)
 
         return img, x_0
 
     def sample_ddim(self, shape, z):
+        #TODO: sampling timesteps theek hai? just 10 timesteps? and that tau_0=100 and not tau_0=0
+
+        print("here ddim")
+        print(shape, z.shape)
+
         batch, device, total_timesteps, sampling_timesteps, eta = shape[0], self.device, self.num_timesteps, self.sampling_timesteps, self.ddim_sampling_eta
 
         times = self.sample_times(total_timesteps, sampling_timesteps)
         time_pairs = self.get_time_pairs(times)
 
+        print("here 3")
+        print(total_timesteps, sampling_timesteps)
+        print(times.shape, time_pairs.shape)
+        print(times)
+        print(time_pairs)
+
         img = z
+        print("finale 1", img.shape)
         for tau_i, tau_isub1 in tqdm(time_pairs, desc='sampling loop time step'):
+            print("inside loop", tau_i, tau_isub1, batch)
             img, _ = self.ddim_step(batch, device, tau_i, tau_isub1, img, self.model_predictions, self.alphas_cumprod, eta)
 
         img = unnormalize_to_zero_to_one(img)
+        print("finale 2")
+        print(img.shape, img.min(), img.max(), img.mean())
         return img
 
     @torch.no_grad()
     def sample(self, shape):
         sample_fn = self.sample_ddpm if not self.is_ddim_sampling else self.sample_ddim
+        print("in sample")
+        print(shape)
         z = torch.randn(shape, device = self.betas.device)
         return sample_fn(shape, z)
 
