@@ -24,10 +24,14 @@ def ae_loss(model, x):
 
     z = model.encoder(x)
     xr = model.decoder(z)
+<<<<<<< HEAD
     loss = F.mse_loss(x,xr, reduce=False)
     # print("In loss: ", z.shape, xr.shape)
     #TODO: loss calculation is okay?
     loss = loss.sum(axis=(1,2,3)).mean()
+=======
+    loss = F.mse_loss(x,xr, reduce=False).mean(dim=0)
+>>>>>>> 867d1ae491cb9c0e9a3c777bb254b4b443a4cd6e
 
     return loss, OrderedDict(recon_loss=loss)
 

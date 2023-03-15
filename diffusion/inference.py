@@ -11,6 +11,7 @@ from cleanfid import fid as cleanfid
 def get_fid(gen, dataset_name, dataset_resolution, z_dimension, batch_size, num_gen):
     # TODO 3.3: Write a function that samples images from the diffusion model given z
     # NOTE: the output must be [0, 255]
+<<<<<<< HEAD
     #TODO: check how batching is done in DDIM?
     
     # print("In FID")
@@ -23,6 +24,10 @@ def get_fid(gen, dataset_name, dataset_resolution, z_dimension, batch_size, num_
         #TODO: clamp in [0,255]?
         return img
 
+=======
+    #TODO: blahblah
+    gen_fn = gen.sample_given_z(shape=z_dimension)
+>>>>>>> 867d1ae491cb9c0e9a3c777bb254b4b443a4cd6e
     score = cleanfid.compute_fid(
         gen=gen_fn,
         dataset_name=dataset_name,
