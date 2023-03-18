@@ -35,11 +35,7 @@ class DiffusionModel(nn.Module):
         # print(alphas.shape, alphas.mean(), alphas.min(), alphas.max())
 
         # TODO 3.1: compute the cumulative products for current and previous timesteps
-<<<<<<< HEAD
         self.alphas_cumprod = torch.cumprod(alphas, dim =-1)
-=======
-        self.alphas_cumprod = torch.cumprod(alphas)
->>>>>>> 867d1ae491cb9c0e9a3c777bb254b4b443a4cd6e
         self.alphas_cumprod_prev = torch.cat([torch.tensor([1.], device=self.device),
                                               self.alphas_cumprod[:-1]])
 
@@ -89,7 +85,6 @@ class DiffusionModel(nn.Module):
         # Hint: You can use extract function from utils.py.
         # clamp x_0 to [-1, 1]
 
-<<<<<<< HEAD
         print("FID debug, here")
         print(x_t.shape, t.shape)
         pred_noise = self.model(x_t,t)
@@ -101,10 +96,6 @@ class DiffusionModel(nn.Module):
 
         num_t = t.shape[0]
         x_0 = self.x_0_pred_coef_1[t].reshape((num_t,1,1,1)) * x_t + self.x_0_pred_coef_2[t].reshape((num_t,1,1,1)) * pred_noise
-=======
-        pred_noise = self.model(x_t,t)
-        x_0 = self.x_0_pred_coef_1[t] * x_t + self.x_0_pred_coef_2[t] * pred_noise
->>>>>>> 867d1ae491cb9c0e9a3c777bb254b4b443a4cd6e
         x_0 = x_0.clamp(-1,1)
 
         return (pred_noise, x_0)
@@ -115,7 +106,6 @@ class DiffusionModel(nn.Module):
         # also return the predicted starting image.
         # Hint: To do this, you will need a predicted x_0. Which function can do this for you?
 
-<<<<<<< HEAD
         # print('here 1')
         num_t = t.shape[0]
         _, pred_x_0 = self.model_predictions(x,t)
@@ -132,15 +122,6 @@ class DiffusionModel(nn.Module):
         # print("Hereeee")
         # print(u_t.shape, sigma_t.shape, x.shape)
         pred_img = u_t + sigma_t.reshape((num_t,1,1,1)) * torch.randn(x.shape).to(self.device)
-=======
-        pred_x_0 = self.model_predictions(x,t)
-        u_t = self.posterior_mean_coef2[t]*x + self.posterior_mean_coef1[t]*pred_x_0
-        sigma_t = self.posterior_variance[t]
-
-        #TODO: we are getting variance but need Std-dev, so take square-root?
-
-        pred_img = u_t + sigma_t * torch.randn(x.shape)
->>>>>>> 867d1ae491cb9c0e9a3c777bb254b4b443a4cd6e
         x_0 = pred_x_0
 
         return pred_img, x_0
@@ -159,7 +140,6 @@ class DiffusionModel(nn.Module):
 
     def sample_times(self, total_timesteps, sampling_timesteps):
         # TODO 3.2: Generate a list of times to sample from.
-<<<<<<< HEAD
         times = torch.arange(total_timesteps,0, -sampling_timesteps).to(self.device)-1
         print("In sample times")
         print(times)
@@ -169,13 +149,6 @@ class DiffusionModel(nn.Module):
         # TODO 3.2: Generate a list of adjacent time pairs to sample from.
         return torch.stack((times[:-1], times[1:]), dim=1)
         #TODO: Rev it
-=======
-        return torch.range(0, total_timesteps, sampling_timesteps).to(self.device)
-
-    def get_time_pairs(self, times):
-        # TODO 3.2: Generate a list of adjacent time pairs to sample from.
-        return torch.stack((times[1:], times[:-1]), dim=1)
->>>>>>> 867d1ae491cb9c0e9a3c777bb254b4b443a4cd6e
 
     def ddim_step(self, batch, device, tau_i, tau_isub1, img, model_predictions, alphas_cumprod, eta):
         # TODO 3.2: Compute the output image for a single step of the DDIM sampling process.
@@ -184,11 +157,7 @@ class DiffusionModel(nn.Module):
         print(img.shape)
 
         # predict x_0 and the additive noise for tau_i
-<<<<<<< HEAD
         pred_noise, x_0 = model_predictions(img, tau_i.repeat(batch))
-=======
-        pred_noise, x_0 = model_predictions(img, tau_i)
->>>>>>> 867d1ae491cb9c0e9a3c777bb254b4b443a4cd6e
 
         # extract \alpha_{\tau_{i - 1}} and \alpha_{\tau_{i}}
         alpha_tau_i = self.alphas_cumprod[tau_i]
@@ -199,27 +168,19 @@ class DiffusionModel(nn.Module):
         sigma_tau_i = torch.sqrt(var_tau_i)
 
         # compute the coefficient of \epsilon_{\tau_{i}}
-<<<<<<< HEAD
         
         print("ddim step 2", alpha_tau_isub1.shape)
         u_tau_i = torch.sqrt(alpha_tau_isub1)*x_0 + torch.sqrt(1-alpha_tau_isub1-var_tau_i)*pred_noise
 
         print(var_tau_i.shape, sigma_tau_i.shape, u_tau_i.shape)
         print(alpha_tau_i.shape, alpha_tau_isub1.shape)
-=======
-        u_tau_i = torch.sqrt(alpha_tau_isub1)*x_0 + torch.sqrt(1-alpha_tau_isub1-var_tau_i)*pred_noise
->>>>>>> 867d1ae491cb9c0e9a3c777bb254b4b443a4cd6e
 
         # sample from q(x_{\tau_{i - 1}} | x_{\tau_t}, x_0)
         # HINT: use the reparameterization trick
         #TODO: deterministic or stochastic here sampling?
-<<<<<<< HEAD
         img = u_tau_i + sigma_tau_i*torch.randn(img.shape).to(self.device)
 
         print(img.shape)
-=======
-        img = u_tau_i + sigma_tau_i*torch.random(img.shape)
->>>>>>> 867d1ae491cb9c0e9a3c777bb254b4b443a4cd6e
 
         return img, x_0
 

@@ -27,35 +27,23 @@ class Encoder(nn.Module):
         """
 
         #TODO 2.1: fill in self.fc, such that output dimension is self.latent_dim
-<<<<<<< HEAD
         self.encoder_block = nn.Sequential(*[nn.Conv2d(in_channels=input_shape[0], out_channels=32, kernel_size=3, stride=1, padding=1),
-=======
-        self.encoder_block = nn.Sequential([nn.Conv2d(in_channels=input_shape[0], out_channels=32, kernel_size=3, stride=1, padding=1),
->>>>>>> 867d1ae491cb9c0e9a3c777bb254b4b443a4cd6e
                                             nn.ReLU(),
                                             nn.Conv2d(in_channels=32, out_channels=64, kernel_size=3, stride=2, padding=1), 
                                             nn.ReLU(),
                                             nn.Conv2d(in_channels=64, out_channels=128, kernel_size=3, stride=2, padding=1),
                                             nn.ReLU(), 
                                             nn.Conv2d(in_channels=128, out_channels=256, kernel_size=3, stride=2, padding=1)])
-<<<<<<< HEAD
         fc_input = 256 * (input_shape[1]//8) * (input_shape[2]//8)
         self.fc = nn.Linear(fc_input, self.latent_dim, bias=True) #TODO: sum across pixels, or flatten everything. How to decide?
-=======
-        self.fc = nn.Linear(256, self.latent_dim, bias=True) #TODO: sum across pixels, or flatten everything. How to decide?
->>>>>>> 867d1ae491cb9c0e9a3c777bb254b4b443a4cd6e
 
     def forward(self, x):
         #TODO 2.1 : forward pass through the network, output should be of dimension : self.latent_dim
 
-<<<<<<< HEAD
         # x = self.encoder_block(x).sum(dim=[2,3]) #TODO: sum across pixels, or flatten everything. How to decide?
         x = self.encoder_block(x)
         # print("in Encoder fwd", x.shape)
         x = x.view(x.shape[0], -1)
-=======
-        x = self.encoder_block(x).sum(dim=[2,3]) #TODO: sum across pixels, or flatten everything. How to decide?
->>>>>>> 867d1ae491cb9c0e9a3c777bb254b4b443a4cd6e
         x = self.fc(x)
         return x
 
@@ -66,23 +54,15 @@ class VAEEncoder(Encoder):
         super().__init__(input_shape, latent_dim)
         #TODO 2.4: fill in self.fc, such that output dimension is 2*self.latent_dim
 
-<<<<<<< HEAD
         self.encoder_block = nn.Sequential(*[nn.Conv2d(in_channels=input_shape[0], out_channels=32, kernel_size=3, stride=1, padding=1),
-=======
-        self.encoder_block = nn.Sequential([nn.Conv2d(in_channels=input_shape[0], out_channels=32, kernel_size=3, stride=1, padding=1),
->>>>>>> 867d1ae491cb9c0e9a3c777bb254b4b443a4cd6e
                                             nn.ReLU(),
                                             nn.Conv2d(in_channels=32, out_channels=64, kernel_size=3, stride=2, padding=1), 
                                             nn.ReLU(),
                                             nn.Conv2d(in_channels=64, out_channels=128, kernel_size=3, stride=2, padding=1),
                                             nn.ReLU(), 
                                             nn.Conv2d(in_channels=128, out_channels=256, kernel_size=3, stride=2, padding=1)])
-<<<<<<< HEAD
         fc_input = 256 * (input_shape[1]//8) * (input_shape[2]//8)
         self.fc = nn.Linear(fc_input, 2*self.latent_dim, bias=True) #TODO: sum across pixels, or flatten everything. How to decide?
-=======
-        self.fc = nn.Linear(256, 2*self.latent_dim, bias=True) #TODO: sum across pixels, or flatten everything. How to decide?
->>>>>>> 867d1ae491cb9c0e9a3c777bb254b4b443a4cd6e
 
 
 
@@ -92,11 +72,7 @@ class VAEEncoder(Encoder):
         # should return a tuple of 2 tensors, mu and log_std
 
         x = self.encoder_block(x)
-<<<<<<< HEAD
         x = x.view(x.shape[0], -1)
-=======
-        x = x.view(x.size[0], -1)
->>>>>>> 867d1ae491cb9c0e9a3c777bb254b4b443a4cd6e
         x = self.fc(x)
 
         mu = x[:,:self.latent_dim]
@@ -112,13 +88,9 @@ class Decoder(nn.Module):
         self.output_shape = output_shape
 
         #TODO 2.1: fill in self.base_size
-<<<<<<< HEAD
         self.base_size = [256 , (output_shape[1]//8) , (output_shape[2]//8)]
         # print("In Decoder init: ", latent_dim, self.base_size, torch.prod(self.base_size))
         self.fc = nn.Linear(latent_dim, np.prod(self.base_size))
-=======
-        self.base_size = 256
->>>>>>> 867d1ae491cb9c0e9a3c777bb254b4b443a4cd6e
 
         """
         TODO 2.1 : Fill in self.deconvs following the given architecture
@@ -133,11 +105,7 @@ class Decoder(nn.Module):
                 (7): Conv2d(32, 3, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
             )
         """
-<<<<<<< HEAD
         self.decoder_block = nn.Sequential(*[nn.ReLU(),
-=======
-        self.decoder_block = nn.Sequential([nn.ReLU(),
->>>>>>> 867d1ae491cb9c0e9a3c777bb254b4b443a4cd6e
                                             nn.ConvTranspose2d(256, 128, kernel_size=(4, 4), stride=(2, 2), padding=(1, 1)),
                                             nn.ReLU(),
                                             nn.ConvTranspose2d(128, 64, kernel_size=(4, 4), stride=(2, 2), padding=(1, 1)),
@@ -149,15 +117,10 @@ class Decoder(nn.Module):
     def forward(self, z):
         #TODO 2.1: forward pass through the network, first through self.fc, then self.deconvs.
         #TODO: self.fc what?
-<<<<<<< HEAD
         # print("In decoder: fix shape", z.shape)
         out = self.fc(z)
         out = out.view(out.shape[0], *self.base_size)
         out = self.decoder_block(out)
-=======
-
-        out = self.decoder_block(z)
->>>>>>> 867d1ae491cb9c0e9a3c777bb254b4b443a4cd6e
         return out
 
 class AEModel(nn.Module):

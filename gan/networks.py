@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+import pdb
 
 class UpSampleConv2D(torch.jit.ScriptModule):
     # TODO 1.1: Implement nearest neighbor upsampling + conv layer
@@ -29,11 +30,11 @@ class UpSampleConv2D(torch.jit.ScriptModule):
         # to form a (batch x channel x height*upscale_factor x width*upscale_factor) output
         # 3. Apply convolution and return output
 
-        x = torch.repeat(1,self.upscale_factor,1,1) #TODO: shouldn't this be elementwise?
+        x = x.repeat(1,int(self.upscale_factor**2),1,1) #TODO: shouldn't this be elementwise?
         x = self.pix_shuffle(x)
         x = self.conv2d(x)
 
-        print(x.shape) #TODO: verify
+        # print(x.shape) #TODO: verify
 
         return x
 
@@ -59,7 +60,13 @@ class DownSampleConv2D(torch.jit.ScriptModule):
         # 3. Average across dimension 0, apply convolution and return output
 
         x = self.pix_unshuffle(x)
-        #TODO:
+        b, c, h, w = x.shape
+        down= int(self.downscale_factor **2)
+        x = x.reshape(down, b, c//down, h, w).mean(dim=0)
+        x = self.conv2d(x)
+
+        return x
+
 
 
 class ResBlockUp(torch.jit.ScriptModule):
@@ -84,7 +91,7 @@ class ResBlockUp(torch.jit.ScriptModule):
     def __init__(self, input_channels, kernel_size=3, n_filters=128):
         super(ResBlockUp, self).__init__()
         # TODO 1.1: Setup the network layers
-        self.ResBlockUp = nn.Sequential([nn.BatchNorm2d(num_features=input_channels, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True),
+        self.ResBlockUp = nn.Sequential(*[nn.BatchNorm2d(num_features=input_channels, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True),
                                          nn.ReLU(),
                                          nn.Conv2d(in_channels=input_channels, out_channels=n_filters, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False),
                                          nn.BatchNorm2d(n_filters, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True),
@@ -119,10 +126,10 @@ class ResBlockDown(torch.jit.ScriptModule):
     def __init__(self, input_channels, kernel_size=3, n_filters=128):
         super(ResBlockDown, self).__init__()
         # TODO 1.1: Setup the network layers
-        self.ResBlockDown = nn.Sequential([nn.ReLU(), 
+        self.ResBlockDown = nn.Sequential(*[nn.ReLU(), 
                                            nn.Conv2d(in_channels=input_channels, out_channels=n_filters, kernel_size=3, stride=1, padding=1),
                                            nn.ReLU(),
-                                           DownSampleConv2D(input_channels=n_filters, kernel_size=kernel_size, n_filters=n_filters)
+                                           DownSampleConv2D(input_channels=n_filters, kernel_size=kernel_size, n_filters=n_filters, padding=1)
                                            ]) #TODO: What is down-sample doing really? input shape output shape?
 
         self.downsample_residual = DownSampleConv2D(input_channels=input_channels, n_filters=n_filters, kernel_size=1, stride=1)
@@ -150,10 +157,10 @@ class ResBlock(torch.jit.ScriptModule):
     def __init__(self, input_channels, kernel_size=3, n_filters=128):
         super(ResBlock, self).__init__()
         # TODO 1.1: Setup the network layers
-        self.ResBlock = nn.Sequential([nn.ReLU(),
+        self.ResBlock = nn.Sequential(*[nn.ReLU(),
                                         nn.Conv2d(in_channels= input_channels, out_channels=n_filters, kernel_size=kernel_size, stride=1, padding=1),
                                         nn.ReLU(),
-                                        nn.Conv2d(input_channels=n_filters, out_channels=n_filters, kernel_size=3, stride=1, padding=1)])
+                                        nn.Conv2d(in_channels=n_filters, out_channels=n_filters, kernel_size=3, stride=1, padding=1)])
 
     @torch.jit.script_method
     def forward(self, x):
@@ -224,9 +231,9 @@ class Generator(torch.jit.ScriptModule):
         super(Generator, self).__init__()
         self.starting_image_size = starting_image_size
         self.dense_init = nn.Linear(128, 2048, bias = True)
-        self.gen_block = nn.Sequential([ResBlockUp(input_channels=128, kernel_size=3, n_filters=128),
-                                        ResBlockUp(input_channels=128, kernel_size=3, n_fitlers=128),
-                                        ResBlockUp(input_channels=128, kernel_size=3, n_fitlers=128),
+        self.gen_block = nn.Sequential(*[ResBlockUp(input_channels=128, kernel_size=3, n_filters=128),
+                                        ResBlockUp(input_channels=128, kernel_size=3, n_filters=128),
+                                        ResBlockUp(input_channels=128, kernel_size=3, n_filters=128),
                                         nn.BatchNorm2d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True),
                                         nn.ReLU(),
                                         nn.Conv2d(128, 3, kernel_size=3, stride=1, padding=1),
@@ -245,7 +252,7 @@ class Generator(torch.jit.ScriptModule):
     @torch.jit.script_method
     def forward(self, n_samples: int = 1024):
         # TODO 1.1: Generate n_samples latents and forward through the network.
-        z = torch.randn(n_samples, 128) #TODO: device and torch.half AMP stuff?
+        z = torch.randn(n_samples, 128).cuda() #TODO: device and torch.half AMP stuff?
         z = self.dense_init(z).reshape((-1, 128, self.starting_image_size, self.starting_image_size))
         z = self.gen_block(z)
         return z
@@ -307,11 +314,13 @@ class Discriminator(torch.jit.ScriptModule):
     def __init__(self):
         super(Discriminator, self).__init__()
         # TODO 1.1: Setup the network layers
-        self.dscr_block = nn.Sequential([ResBlockDown(input_channels=3, kernel_size=3, n_filters=128),
-                                         ResBlockDown(input_channels=128, kernel_size=3, n_filters=128),
-                                         ResBlock(input_channels=128, kernel_size=3, n_filters=128),
-                                         ResBlock(input_channels=128, kernel_size=3, n_filters=128),
-                                         nn.ReLU()])
+        self.dscr_block = nn.Sequential(*[
+            ResBlockDown(input_channels=3, kernel_size=3, n_filters=128),
+            ResBlockDown(input_channels=128, kernel_size=3, n_filters=128),
+            ResBlock(input_channels=128, kernel_size=3, n_filters=128),
+            ResBlock(input_channels=128, kernel_size=3, n_filters=128),
+            nn.ReLU(),
+            ])
         self.dense_out = nn.Linear(in_features=128, out_features=1, bias=True)
 
 
